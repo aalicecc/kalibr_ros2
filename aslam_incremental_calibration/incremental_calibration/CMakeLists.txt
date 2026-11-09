@@ -1,19 +1,17 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.8)
 project(incremental_calibration)
+
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set(CMAKE_CXX_STANDARD 14)
 
-find_package(catkin REQUIRED COMPONENTS sm_eigen aslam_backend)
-find_package(Boost REQUIRED COMPONENTS system thread)
+find_package(ament_cmake REQUIRED)
+find_package(sm_eigen REQUIRED)
+find_package(aslam_backend REQUIRED)
 find_package(Eigen3 REQUIRED)
-
-catkin_package(
-  LIBRARIES ${PROJECT_NAME}
-  INCLUDE_DIRS include
-  CATKIN_DEPENDS sm_eigen
-)
-
-include_directories(include ${catkin_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR})
+find_package(Boost REQUIRED COMPONENTS
+  system thread serialization filesystem regex)
+find_package(TBB REQUIRED)
 
 add_library(${PROJECT_NAME}
   src/base/Serializable.cpp
@@ -42,35 +40,21 @@ add_library(${PROJECT_NAME}
   src/algorithms/marginalize.cpp
   src/algorithms/linalg.cpp
 )
-target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${TBB_LIBRARIES})
+target_include_directories(${PROJECT_NAME} PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${EIGEN3_INCLUDE_DIRS})
+target_link_libraries(${PROJECT_NAME}
+  Boost::system Boost::thread TBB::tbb)
+ament_target_dependencies(${PROJECT_NAME} sm_eigen aslam_backend)
 
-# if(CATKIN_ENABLE_TESTING)
-#   # Avoid clash with tr1::tuple:
-#   # https://code.google.com/p/googletest/source/browse/trunk/README?r=589#257
-#   add_definitions(-DGTEST_USE_OWN_TR1_TUPLE=0)
+install(TARGETS ${PROJECT_NAME} EXPORT export_${PROJECT_NAME}
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin)
+install(DIRECTORY include/ DESTINATION include)
 
-#   catkin_add_gtest(${PROJECT_NAME}_test
-#     test/test_main.cpp
-#     test/VectorDesignVariableTest.cpp
-#     test/AlgorithmsTest.cpp
-#     test/OptimizationProblemTest.cpp
-#     test/IncrementalOptimizationProblemTest.cpp
-#     test/LinearSolverTest.cpp
-#     )
-#   target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})
-# endif()
-
-##################
-## Installation ##
-##################
-
-install(TARGETS ${PROJECT_NAME}
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
-
-## Mark cpp header files for installation
-install(DIRECTORY include/
-  DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}
-)
+ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
+ament_export_include_directories(include ${EIGEN3_INCLUDE_DIRS})
+ament_export_dependencies(sm_eigen aslam_backend Eigen3 Boost TBB)
+ament_package()

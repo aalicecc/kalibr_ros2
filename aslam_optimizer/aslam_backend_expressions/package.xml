@@ -6,16 +6,16 @@
 
   <maintainer email="Paul.Furgale@mavt.ethz.ch">Paul Furgale</maintainer>
   <license>BSD</license>
-  <buildtool_depend>catkin</buildtool_depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <build_depend>aslam_backend</build_depend>
-  <build_depend>sm_boost</build_depend>
-  <build_depend>sm_random</build_depend>
-  <build_depend>sm_kinematics</build_depend>
-  <build_depend>eigen</build_depend>
-  <build_depend>sparse_block_matrix</build_depend>
-  <build_depend>suitesparse</build_depend>
-  <build_depend>sm_timing</build_depend>
-
-  <build_export_depend>sparse_block_matrix</build_export_depend>
+  <depend>aslam_backend</depend>
+  <depend>sm_boost</depend>
+  <depend>sm_random</depend>
+  <depend>sm_kinematics</depend>
+  <depend>eigen</depend>
+  <depend>boost</depend>
+  <depend>sparse_block_matrix</depend>
+  <depend>suitesparse</depend>
+  <depend>sm_timing</depend>
+  <export><build_type>ament_cmake</build_type></export>
 </package>

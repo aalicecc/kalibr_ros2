@@ -1,4 +1,4 @@
-import rosbag
+from kalibr_common.BagReader import BagReader, stamp_nanoseconds, stamp_seconds
 import os
 import sm
 import numpy as np
@@ -28,21 +28,17 @@ class BagImuDatasetReader(object):
         self.bagfile = bagfile
         self.topic = imutopic
         self.perform_synchronization = perform_synchronization
-        self.bag = rosbag.Bag(bagfile)
+        self.bag = BagReader(bagfile)
         self.uncompress = None
         if imutopic is None:
             raise RuntimeError("Please pass in a topic name referring to the imu stream in the bag file\n{0}".format(self.bag));
 
         # Get the message indices
-        conx = self.bag._get_connections(topics=imutopic)
-        indices = self.bag._get_indexes(conx)
-        
-        try:
-            self.index = next(indices)
-        except:
+        self.records = list(self.bag.messages(imutopic))
+        if not self.records:
             raise RuntimeError("Could not find topic {0} in {1}.".format(imutopic, self.bagfile))
-        
-        self.indices = np.arange(len(self.index))
+
+        self.indices = np.arange(len(self.records))
         
         #sort the indices by header.stamp
         self.indices = self. sortByTime(self.indices)
@@ -56,12 +52,12 @@ class BagImuDatasetReader(object):
         self.timestamp_corrector = sm.DoubleTimestampCorrector()
         timestamps=list()
         for idx in self.indices:
-            topic, data, stamp = self.bag._read_message(self.index[idx].position)
-            timestamp = data.header.stamp.secs*1e9 + data.header.stamp.nsecs
+            data, stamp = self.records[idx]
+            timestamp = stamp_nanoseconds(data.header.stamp)
             timestamps.append(timestamp)
             if self.perform_synchronization:
                 self.timestamp_corrector.correctTimestamp(data.header.stamp.to_sec(), \
-                                                          stamp.to_sec())
+                                                          stamp_seconds(stamp))
         
         sorted_tuples = sorted(zip(timestamps, indices))
         sorted_indices = [tuple_value[1] for tuple_value in sorted_tuples]
@@ -71,8 +67,8 @@ class BagImuDatasetReader(object):
         #get the timestamps
         timestamps=list()
         for idx in self.indices:
-            topic, data, stamp = self.bag._read_message(self.index[idx].position)
-            timestamp = data.header.stamp.secs + data.header.stamp.nsecs/1.0e9
+            data, stamp = self.records[idx]
+            timestamp = stamp_seconds(data.header.stamp)
             timestamps.append(timestamp)
 
         bagstart = min(timestamps)
@@ -112,11 +108,12 @@ class BagImuDatasetReader(object):
         return len(self.indices)
     
     def getMessage(self,idx):
-        topic, data, stamp = self.bag._read_message(self.index[idx].position)
+        data, stamp = self.records[idx]
         if self.perform_synchronization:
-            timestamp = acv.Time(self.timestamp_corrector.getLocalTime(data.header.stamp.to_sec()))
+            timestamp = acv.Time(self.timestamp_corrector.getLocalTime(stamp_seconds(data.header.stamp)))
         else:
-            timestamp = acv.Time( data.header.stamp.secs, data.header.stamp.nsecs )
+            sec, nsec = divmod(stamp_nanoseconds(data.header.stamp), 1000000000)
+            timestamp = acv.Time(sec, nsec)
         omega = np.array( [data.angular_velocity.x, data.angular_velocity.y, data.angular_velocity.z])
         alpha = np.array( [data.linear_acceleration.x, data.linear_acceleration.y, data.linear_acceleration.z] )
         

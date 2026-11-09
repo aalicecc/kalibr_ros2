@@ -1,6 +1,6 @@
-#!/usr/bin/env python
-import rospy
-from std_msgs.msg import String
+#!/usr/bin/env python3
+import rclpy
+from rclpy.node import Node
 from sensor_msgs.msg import Image, CompressedImage
 from cv_bridge import CvBridge, CvBridgeError
 import message_filters
@@ -11,6 +11,7 @@ import aslam_cv as acv
 import aslam_cv_backend as acvb
 import aslam_cameras_april as acv_april
 import kalibr_common as kc
+from kalibr_common.BagReader import message_type, stamp_parts
 
 import os
 import time
@@ -59,8 +60,9 @@ class CalibrationTargetDetector(object):
         options.filterCornerOutliers = True
         self.detector = acv.GridDetector(camera.geometry, grid, options)
     
-class CameraChainValidator(object):
+class CameraChainValidator(Node):
     def __init__(self, chainConfig, targetParams):
+        super().__init__('kalibr_camera_validator')
         
         self.chainConfig = chainConfig
         self.numCameras = chainConfig.numCameras()
@@ -73,7 +75,7 @@ class CameraChainValidator(object):
             camConfig = chainConfig.getCameraParameters(cidx)
             
             #create a mono instance for each cam (detection and mono view)
-            monovalidator = MonoCameraValidator(camConfig, targetParams)
+            monovalidator = MonoCameraValidator(camConfig, targetParams, self)
             cv2.namedWindow(monovalidator.windowName, cv2.WINDOW_NORMAL)
             cv2.resizeWindow(monovalidator.windowName, (640, 480))
             self.monovalidators.append(monovalidator)
@@ -110,7 +112,8 @@ class CameraChainValidator(object):
             cv2.resizeWindow(windowName, (2*640, 480))
                 
         #register the callback for the synchronized images
-        sync_sub = message_filters.ApproximateTimeSynchronizer([val.image_sub for val in self.monovalidators], 10, 0.02)
+        sync_sub = message_filters.ApproximateTimeSynchronizer(
+            [val.image_sub for val in self.monovalidators], queue_size=10, slop=0.02)
         sync_sub.registerCallback(self.synchronizedCallback)
 
         #initialize message throttler
@@ -130,7 +133,7 @@ class CameraChainValidator(object):
           
             #convert image to gray single channel numpy array
             try:
-                if msg._type == 'sensor_msgs/CompressedImage':
+                if message_type(msg) == 'sensor_msgs/CompressedImage':
                     np_image = np.array(self.bridge.compressed_imgmsg_to_cv2(msg))
                     if len(np_image.shape) > 2 and np_image.shape[2] == 3:
                         np_image = cv2.cvtColor(np_image, cv2.COLOR_BGR2GRAY)
@@ -146,7 +149,7 @@ class CameraChainValidator(object):
             validator = self.monovalidators[cam_nr]
             
             #detect targets for all cams
-            timestamp = acv.Time(msg.header.stamp.secs, msg.header.stamp.nsecs)
+            timestamp = acv.Time(*stamp_parts(msg.header.stamp))
             success, observation = validator.target.detector.findTarget(timestamp, np_image)
             observation.clearImage()
             validator.obs = observation
@@ -378,7 +381,7 @@ class CameraChainValidator(object):
     
         
 class MonoCameraValidator(object):
-    def __init__(self, camConfig, targetParams):
+    def __init__(self, camConfig, targetParams, node):
         
         print("initializing camera geometry")
         self.camera = kc.ConfigReader.AslamCamera.fromParameters(camConfig)
@@ -393,9 +396,10 @@ class MonoCameraValidator(object):
     
         #register the cam topic to the message synchronizer
         if "compressed" in self.topic:
-            self.image_sub = message_filters.Subscriber(self.topic, CompressedImage)
+            self.image_sub = message_filters.Subscriber(
+                node, CompressedImage, self.topic)
         else:
-            self.image_sub = message_filters.Subscriber(self.topic, Image)
+            self.image_sub = message_filters.Subscriber(node, Image, self.topic)
         
         #create image undistorter
         alpha = 1.0
@@ -487,7 +491,7 @@ if __name__ == "__main__":
         sm.setLoggingLevel(sm.LoggingLevel.Info)
 
     # init the node
-    rospy.init_node('kalibr_camera_validator', anonymous=True)
+    rclpy.init()
 
     #load the configuration yamls
     targetConfig = kc.ConfigReader.CalibrationTargetParameters(parsed.targetYaml)
@@ -501,8 +505,10 @@ if __name__ == "__main__":
     
     #ros message loops
     try:
-        rospy.spin()
+        rclpy.spin(chain_validator)
     except KeyboardInterrupt:
         print("Shutting down")
     
     cv2.destroyAllWindows()
+    chain_validator.destroy_node()
+    rclpy.shutdown()

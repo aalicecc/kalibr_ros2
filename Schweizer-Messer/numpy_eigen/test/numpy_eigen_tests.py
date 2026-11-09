@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import roslib; roslib.load_manifest('numpy_eigen'); roslib.load_manifest('rostest'); 
 import numpy_eigen
 import numpy_eigen.test as npe
 import numpy
@@ -110,5 +109,4 @@ class TestEigen(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    import rostest
-    rostest.rosrun('numpy_eigen', 'test_eigen', TestEigen)
+    unittest.main()

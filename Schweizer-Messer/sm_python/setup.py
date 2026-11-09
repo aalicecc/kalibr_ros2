@@ -1,12 +1,9 @@
 
-## ! DO NOT MANUALLY INVOKE THIS setup.py, USE CATKIN INSTEAD
+from setuptools import setup
 
-from distutils.core import setup
-from catkin_pkg.python_setup import generate_distutils_setup
-
-# fetch values from package.xml
-setup_args = generate_distutils_setup(
-    packages=['sm'],
-    package_dir={'':'python'})
-
-setup(**setup_args)
+setup(
+    name="sm-python",
+    version="0.0.1",
+    packages=["sm", "sm.experiments"],
+    package_dir={"": "python"},
+)

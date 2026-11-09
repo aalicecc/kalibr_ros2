@@ -1,15 +1,10 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.8)
 project(aslam_time)
 
-find_package(catkin REQUIRED)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+find_package(ament_cmake REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system)
-
-catkin_package(
-  LIBRARIES ${PROJECT_NAME}  
-  INCLUDE_DIRS include
-  DEPENDS Boost
-)
-
 
 include_directories(include ${Boost_INCLUDE_DIRS})
 
@@ -17,6 +12,10 @@ add_library(${PROJECT_NAME}
   src/time.cpp
   src/duration.cpp
 )
+target_include_directories(${PROJECT_NAME} PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${Boost_INCLUDE_DIRS})
 
 set(OTHER_LIBS)
 if(NOT APPLE)
@@ -25,12 +24,14 @@ endif()
 
 target_link_libraries(${PROJECT_NAME} ${Boost_LIBRARIES} ${OTHER_LIBS})
 
-install(TARGETS ${PROJECT_NAME}
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
+install(TARGETS ${PROJECT_NAME} EXPORT export_${PROJECT_NAME}
+  ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
 
 install(DIRECTORY include/
-  DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}
+  DESTINATION include
 )
+
+ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
+ament_export_include_directories(include)
+ament_export_dependencies(Boost)
+ament_package()

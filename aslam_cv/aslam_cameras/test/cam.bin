@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<!DOCTYPE boost_serialization>
+<boost_serialization signature="serialization::archive" version="18">
+<cam class_id="0" tracking_level="0" version="1">
+	<px class_id="1" tracking_level="1" version="3" object_id="_0">
+		<CameraGeometryBase class_id="2" tracking_level="0" version="0"></CameraGeometryBase>
+		<_id class_id="3" tracking_level="0" version="0">
+			<_id>18446744073709551615</_id>
+		</_id>
+		<_projection class_id="4" tracking_level="0" version="0">
+			<_fu>0.00000000000000000e+00</_fu>
+			<_fv>0.00000000000000000e+00</_fv>
+			<_cu>0.00000000000000000e+00</_cu>
+			<_cv>0.00000000000000000e+00</_cv>
+			<_ru>0</_ru>
+			<_rv>0</_rv>
+			<_distortion class_id="5" tracking_level="0" version="0">
+				<_k1>0.00000000000000000e+00</_k1>
+				<_k2>0.00000000000000000e+00</_k2>
+				<_p1>0.00000000000000000e+00</_p1>
+				<_p2>0.00000000000000000e+00</_p2>
+			</_distortion>
+		</_projection>
+		<_shutter class_id="6" tracking_level="0" version="0"></_shutter>
+		<_mask class_id="7" tracking_level="0" version="0"></_mask>
+	</px>
+</cam>
+</boost_serialization>
+

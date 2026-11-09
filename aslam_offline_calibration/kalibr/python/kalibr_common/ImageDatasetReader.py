@@ -1,6 +1,6 @@
 import cv_bridge
 import cv2
-import rosbag
+from kalibr_common.BagReader import BagReader, message_type, stamp_nanoseconds, stamp_seconds
 import os
 import numpy as np
 import pylab as pl
@@ -35,7 +35,7 @@ class BagImageDatasetReader(object):
     self.bagfile = bagfile
     self.topic = imagetopic
     self.perform_synchronization = perform_synchronization
-    self.bag = rosbag.Bag(bagfile)
+    self.bag = BagReader(bagfile)
     self.uncompress = None
     if imagetopic is None:
       raise RuntimeError(
@@ -43,15 +43,10 @@ class BagImageDatasetReader(object):
 
     self.CVB = cv_bridge.CvBridge()
     # Get the message indices
-    conx = self.bag._get_connections(topics=imagetopic)
-    indices = self.bag._get_indexes(conx)
-
-    try:
-      self.index = next(indices)
-    except:
+    self.records = self.bag.records(imagetopic)
+    if len(self.records) == 0:
       raise RuntimeError("Could not find topic {0} in {1}.".format(imagetopic, self.bagfile))
-
-    self.indices = np.arange(len(self.index))
+    self.indices = np.arange(len(self.records))
 
     # sort the indices by header.stamp
     self.indices = self.sortByTime(self.indices)
@@ -68,13 +63,13 @@ class BagImageDatasetReader(object):
   def sortByTime(self, indices):
     self.timestamp_corrector = sm.DoubleTimestampCorrector()
     timestamps = list()
-    for idx in self.indices:
-      topic, data, stamp = self.bag._read_message(self.index[idx].position)
-      timestamp = data.header.stamp.secs * 1e9 + data.header.stamp.nsecs
+    for idx in indices:
+      timestamp = self.records.header_timestamp_nanoseconds(idx)
       timestamps.append(timestamp)
       if self.perform_synchronization:
-        self.timestamp_corrector.correctTimestamp(data.header.stamp.to_sec(),
-                                                  stamp.to_sec())
+        data, stamp = self.records[idx]
+        self.timestamp_corrector.correctTimestamp(stamp_seconds(data.header.stamp),
+                                                  stamp_seconds(stamp))
 
     sorted_tuples = sorted(zip(timestamps, indices))
     sorted_indices = [tuple_value[1] for tuple_value in sorted_tuples]
@@ -82,14 +77,11 @@ class BagImageDatasetReader(object):
 
   def truncateIndicesFromTime(self, indices, bag_from_to):
     # get the timestamps
-    timestamps = list()
-    for idx in self.indices:
-      topic, data, stamp = self.bag._read_message(self.index[idx].position)
-      timestamp = data.header.stamp.secs + data.header.stamp.nsecs / 1.0e9
-      timestamps.append(timestamp)
+    timestamps = [(idx, self.records.header_timestamp_nanoseconds(idx) * 1e-9)
+                  for idx in indices]
 
-    bagstart = min(timestamps)
-    baglength = max(timestamps) - bagstart
+    bagstart = min(timestamp for _, timestamp in timestamps)
+    baglength = max(timestamp for _, timestamp in timestamps) - bagstart
 
     # some value checking
     if bag_from_to[0] >= bag_from_to[1]:
@@ -102,7 +94,7 @@ class BagImageDatasetReader(object):
 
     # find the valid timestamps
     valid_indices = []
-    for idx, timestamp in enumerate(timestamps):
+    for idx, timestamp in timestamps:
       if timestamp >= (bagstart + bag_from_to[0]) and timestamp <= (bagstart + bag_from_to[1]):
         valid_indices.append(idx)
     sm.logWarn(
@@ -118,9 +110,8 @@ class BagImageDatasetReader(object):
     # find the valid timestamps
     timestamp_last = -1
     valid_indices = []
-    for idx in self.indices:
-      topic, data, stamp = self.bag._read_message(self.index[idx].position)
-      timestamp = data.header.stamp.secs + data.header.stamp.nsecs / 1.0e9
+    for idx in indices:
+      timestamp = self.records.header_timestamp_nanoseconds(idx) * 1e-9
       if timestamp_last < 0.0:
         timestamp_last = timestamp
         valid_indices.append(idx)
@@ -148,26 +139,27 @@ class BagImageDatasetReader(object):
     return len(self.indices)
 
   def getImage(self, idx):
-    topic, data, stamp = self.bag._read_message(self.index[idx].position)
+    data, stamp = self.records[idx]
     if self.perform_synchronization:
       timestamp = acv.Time(self.timestamp_corrector.getLocalTime(
-          data.header.stamp.to_sec()))
+          stamp_seconds(data.header.stamp)))
     else:
-      timestamp = acv.Time(data.header.stamp.secs,
-                           data.header.stamp.nsecs)
-    if data._type == 'mv_cameras/ImageSnappyMsg':
+      sec, nsec = divmod(stamp_nanoseconds(data.header.stamp), 1000000000)
+      timestamp = acv.Time(sec, nsec)
+    data_type = message_type(data)
+    if data_type == 'mv_cameras/ImageSnappyMsg':
       if self.uncompress is None:
         from snappy import uncompress
         self.uncompress = uncompress
       img_data = np.reshape(self.uncompress(np.fromstring(
           data.data, dtype='uint8')), (data.height, data.width), order="C")
-    elif data._type == 'sensor_msgs/CompressedImage':
+    elif data_type == 'sensor_msgs/CompressedImage':
       # compressed images only have either mono or BGR normally (png and jpeg)
       # https://github.com/ros-perception/vision_opencv/blob/906d326c146bd1c6fbccc4cd1268253890ac6e1c/cv_bridge/src/cv_bridge.cpp#L480-L506
       img_data = np.array(self.CVB.compressed_imgmsg_to_cv2(data))
       if len(img_data.shape) > 2 and img_data.shape[2] == 3:
         img_data = cv2.cvtColor(img_data, cv2.COLOR_BGR2GRAY)
-    elif data._type == 'sensor_msgs/Image':
+    elif data_type == 'sensor_msgs/Image':
       if data.encoding == "16UC1" or data.encoding == "mono16":
         image_16u = np.array(self.CVB.imgmsg_to_cv2(data))
         img_data = (image_16u / 256).astype("uint8")
@@ -204,5 +196,5 @@ class BagImageDatasetReader(object):
     else:
       raise RuntimeError(
         "Unsupported Image Type: '{}'\nSupported are: "
-        "mv_cameras/ImageSnappyMsg, sensor_msgs/CompressedImage, sensor_msgs/Image".format(data._type))
+        "mv_cameras/ImageSnappyMsg, sensor_msgs/CompressedImage, sensor_msgs/Image".format(data_type))
     return (timestamp, img_data)

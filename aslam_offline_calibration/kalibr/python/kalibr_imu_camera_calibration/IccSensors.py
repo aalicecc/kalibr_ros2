@@ -24,7 +24,7 @@ def initCameraBagDataset(bagfile, topic, from_to, freq, perform_synchronization)
     print("\tTopic:            {0}".format(topic))
     reader = kc.BagImageDatasetReader(bagfile, topic, bag_from_to=from_to, bag_freq=freq, \
                                       perform_synchronization=perform_synchronization)
-    print("\tNumber of images: {0}".format(len(reader.index)))
+    print("\tNumber of images: {0}".format(reader.numImages()))
     return reader
 
 def initImuBagDataset(bagfile, topic, from_to=None, perform_synchronization=False):
@@ -33,7 +33,7 @@ def initImuBagDataset(bagfile, topic, from_to=None, perform_synchronization=Fals
     print("\tTopic:            {0}".format(topic))
     reader = kc.BagImuDatasetReader(bagfile, topic, bag_from_to=from_to, \
                                       perform_synchronization=perform_synchronization)
-    print("\tNumber of messages: {0}".format(len(reader.index)))
+    print("\tNumber of messages: {0}".format(reader.numMessages()))
     return reader
 
 
@@ -134,10 +134,12 @@ class IccCamera():
         
         #initialize a pose spline using the camera poses
         poseSpline = self.initPoseSplineFromCamera( timeOffsetPadding=0.0 )
+        spline_t_min = poseSpline.t_min()
+        spline_t_max = poseSpline.t_max()
         
         for im in imu.imuData:
             tk = im.stamp.toSec()
-            if tk > poseSpline.t_min() and tk < poseSpline.t_max():        
+            if tk > spline_t_min and tk < spline_t_max:
                 #DV expressions
                 R_i_c = q_i_c_Dv.toExpression()
                 bias = gyroBiasDv.toExpression()   
@@ -184,7 +186,7 @@ class IccCamera():
         a_w = []
         for im in imu.imuData:
             tk = im.stamp.toSec()
-            if tk > poseSpline.t_min() and tk < poseSpline.t_max():
+            if tk > spline_t_min and tk < spline_t_max:
                 a_w.append(np.dot(poseSpline.orientation(tk), np.dot(R_i_c, - im.alpha)))
         mean_a_w = np.mean(np.asarray(a_w).T, axis=1)
         self.gravity_w = mean_a_w / np.linalg.norm(mean_a_w) * 9.80655
@@ -219,29 +221,35 @@ class IccCamera():
         
         #fit a spline to the camera observations
         poseSpline = self.initPoseSplineFromCamera( timeOffsetPadding=0.0 )
+        spline_t_min = poseSpline.t_min()
+        spline_t_max = poseSpline.t_max()
         
         #predict time shift prior 
-        t=[]
+        t = []
         omega_measured_norm = []
         omega_predicted_norm = []
         
         for im in imu.imuData:
             tk = im.stamp.toSec()
-            if tk > poseSpline.t_min() and tk < poseSpline.t_max():
+            if tk > spline_t_min and tk < spline_t_max:
                 
                 #get imu measurements and spline from camera
                 omega_measured = im.omega
                 omega_predicted = aopt.EuclideanExpression( np.matrix( poseSpline.angularVelocityBodyFrame( tk ) ).transpose() )
 
                 #calc norm
-                t = np.hstack( (t, tk) )
-                omega_measured_norm = np.hstack( (omega_measured_norm, np.linalg.norm( omega_measured ) ))
-                omega_predicted_norm = np.hstack( (omega_predicted_norm, np.linalg.norm( omega_predicted.toEuclidean() )) )
+                t.append(tk)
+                omega_measured_norm.append(np.linalg.norm(omega_measured))
+                omega_predicted_norm.append(np.linalg.norm(omega_predicted.toEuclidean()))
         
         if len(omega_predicted_norm) == 0 or len(omega_measured_norm) == 0:
             sm.logFatal("The time ranges of the camera and IMU do not overlap. "\
                         "Please make sure that your sensors are synchronized correctly.")
             sys.exit(-1)
+
+        t = np.asarray(t)
+        omega_measured_norm = np.asarray(omega_measured_norm)
+        omega_predicted_norm = np.asarray(omega_predicted_norm)
         
         #get the time shift
         corr = np.correlate(omega_predicted_norm, omega_measured_norm, "full")
@@ -337,6 +345,8 @@ class IccCamera():
 
         allReprojectionErrors = list()
         error_t = self.camera.reprojectionErrorType
+        spline_t_min = poseSplineDv.spline().t_min()
+        spline_t_max = poseSplineDv.spline().t_max()
         
         for obs in self.targetObservations:
             # Build a transformation expression for the time.
@@ -345,7 +355,7 @@ class IccCamera():
             
             #as we are applying an initial time shift outside the optimization so 
             #we need to make sure that we dont add data outside the spline definition
-            if frameTimeScalar <= poseSplineDv.spline().t_min() or frameTimeScalar >= poseSplineDv.spline().t_max():
+            if frameTimeScalar <= spline_t_min or frameTimeScalar >= spline_t_max:
                 continue
             
             T_w_b = poseSplineDv.transformationAtTime(frameTime, timeOffsetPadding, timeOffsetPadding)
@@ -596,6 +606,7 @@ class IccImu(object):
         #statistics
         self.accelUncertaintyDiscrete, self.accelRandomWalk, self.accelUncertainty = self.imuConfig.getAccelerometerStatistics()
         self.gyroUncertaintyDiscrete, self.gyroRandomWalk, self.gyroUncertainty = self.imuConfig.getGyroStatistics()
+        self.imuRate = getattr(parsed, 'imu_rate', None)
         
         #init GyroBiasPrior (+ count for recursive averaging if we have more than 1 measurement = >1 cameras)
         self.GyroBiasPrior = np.array([0,0,0])
@@ -630,9 +641,22 @@ class IccImu(object):
         
         # Now read the imu measurements.
         imu = []
+        min_dt = None
+        last_keep_t = None
+        if self.imuRate is not None:
+            if self.imuRate <= 0.0:
+                sm.logFatal("IMU downsample rate must be positive.")
+                sys.exit(-1)
+            min_dt = 1.0 / self.imuRate
+            print("  Downsampling IMU residuals to {0:.1f} Hz".format(self.imuRate))
         for timestamp, omega, alpha in self.dataset:
             timestamp = acv.Time( timestamp.toSec() ) 
+            t = timestamp.toSec()
+            if min_dt is not None and last_keep_t is not None and (t - last_keep_t) < min_dt:
+                iProgress.sample()
+                continue
             imu.append( self.ImuMeasurement(timestamp, omega, alpha, Rgyro, Raccel) )
+            last_keep_t = t
             iProgress.sample()
         
         self.imuData = imu
@@ -684,10 +708,13 @@ class IccImu(object):
             mest = aopt.HuberMEstimator(mSigma)
         else:
             mest = aopt.NoMEstimator()
+
+        spline_t_min = poseSplineDv.spline().t_min()
+        spline_t_max = poseSplineDv.spline().t_max()
             
         for im in self.imuData:
             tk = im.stamp.toSec() + self.timeOffset
-            if tk > poseSplineDv.spline().t_min() and tk < poseSplineDv.spline().t_max():
+            if tk > spline_t_min and tk < spline_t_max:
                 C_b_w = poseSplineDv.orientation(tk).inverse()
                 a_w = poseSplineDv.linearAcceleration(tk)
                 b_i = self.accelBiasDv.toEuclideanExpression(tk,0)
@@ -726,10 +753,13 @@ class IccImu(object):
             mest = aopt.HuberMEstimator(mSigma)
         else:
             mest = aopt.NoMEstimator()
+
+        spline_t_min = poseSplineDv.spline().t_min()
+        spline_t_max = poseSplineDv.spline().t_max()
             
         for im in self.imuData:
             tk = im.stamp.toSec() + self.timeOffset
-            if tk > poseSplineDv.spline().t_min() and tk < poseSplineDv.spline().t_max():
+            if tk > spline_t_min and tk < spline_t_max:
                 # GyroscopeError(measurement, invR, angularVelocity, bias)
                 w_b = poseSplineDv.angularVelocityBodyFrame(tk)
                 b_i = self.gyroBiasDv.toEuclideanExpression(tk,0)

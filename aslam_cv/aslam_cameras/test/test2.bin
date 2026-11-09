@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<!DOCTYPE boost_serialization>
+<boost_serialization signature="serialization::archive" version="18">
+<detops class_id="0" tracking_level="1" version="1" object_id="_0">
+	<plotCornerReprojection>0</plotCornerReprojection>
+	<imageStepping>0</imageStepping>
+	<filterCornerOutliers>0</filterCornerOutliers>
+	<filterCornerSigmaThreshold>2.000000000e+00</filterCornerSigmaThreshold>
+	<filterCornerMinReprojError>2.000000030e-01</filterCornerMinReprojError>
+</detops>
+</boost_serialization>
+

@@ -1,77 +1,47 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.8)
 project(numpy_eigen)
 
 set(CMAKE_CXX_STANDARD 14)
 
-find_package(catkin REQUIRED COMPONENTS python_module)
-find_package(Boost REQUIRED COMPONENTS system)
+find_package(ament_cmake REQUIRED)
+find_package(ament_cmake_python REQUIRED)
+find_package(python_module REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(Boost REQUIRED COMPONENTS python310)
+find_package(Python3 REQUIRED COMPONENTS Development.Module NumPy)
 
-catkin_python_setup()
+include(src/autogen_files.cmake)
+add_python_export_library(${PROJECT_NAME}
+  "${CMAKE_CURRENT_SOURCE_DIR}/python/${PROJECT_NAME}"
+  ${AUTOGEN_FILES})
+target_include_directories(${PROJECT_NAME} PRIVATE
+  include
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}"
+  ${EIGEN3_INCLUDE_DIRS}
+  ${Python3_NumPy_INCLUDE_DIRS})
+target_link_libraries(${PROJECT_NAME} Boost::python310)
+target_compile_definitions(${PROJECT_NAME} PRIVATE __STRICT_ANSI__)
+target_compile_options(${PROJECT_NAME} PRIVATE -fpermissive)
 
-add_definitions(${EIGEN_DEFINITIONS})
-include_directories(include ${EIGEN3_INCLUDE_DIRS} ${catkin_INCLUDE_DIRS})
-include_directories("${PROJECT_SOURCE_DIR}/include/numpy_eigen")
+include(src/autogen_test_files.cmake)
+add_python_export_library(${PROJECT_NAME}_test
+  "${CMAKE_CURRENT_SOURCE_DIR}/python/${PROJECT_NAME}"
+  ${AUTOGEN_TEST_FILES})
+target_include_directories(${PROJECT_NAME}_test PRIVATE
+  include
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}"
+  ${EIGEN3_INCLUDE_DIRS})
+target_link_libraries(${PROJECT_NAME}_test Boost::python310)
+target_compile_options(${PROJECT_NAME}_test PRIVATE -fpermissive)
 
-catkin_package(
-  INCLUDE_DIRS include ${catkin_INCLUDE_DIRS}
-  LIBRARIES ${PROJECT_NAME}
-  DEPENDS Boost
-  CFG_EXTRAS numpy_eigen-extras.cmake
-)
-add_definitions(-D__STRICT_ANSI__)
+ament_python_install_package(${PROJECT_NAME} PACKAGE_DIR src/${PROJECT_NAME})
+install(DIRECTORY include/${PROJECT_NAME}/ DESTINATION include/${PROJECT_NAME})
 
-# ignore "error: return-statement with a value, in function returning ‘void’" in "__multiarray_api.h"
-add_compile_options(-fpermissive)
-
-include_directories(include ${Boost_INCLUDE_DIRS})
-
-IF(APPLE)
-  link_directories( /usr/local/lib )
-ENDIF(APPLE)
-
-##############
-## Building ##
-##############
-
-INCLUDE(src/autogen_files.cmake)
-add_python_export_library(${PROJECT_NAME} 
-  ${PROJECT_SOURCE_DIR}/python/${PROJECT_NAME} ${AUTOGEN_FILES}
-)
-
-target_link_libraries(${PROJECT_NAME} 
-                      ${catkin_LIBRARIES} ${Boost_LIBRARIES})
-                      
-INCLUDE(src/autogen_test_files.cmake)
-add_python_export_library(${PROJECT_NAME}_test 
-      ${PROJECT_SOURCE_DIR}/python/${PROJECT_NAME} ${AUTOGEN_TEST_FILES}
-  )
-
-#############
-## Testing ##
-#############
-if(CATKIN_ENABLE_TESTING)
-  ## Add nosetest based cpp test target.
-  catkin_add_nosetests(test/numpy_eigen_tests.py)
+if(BUILD_TESTING)
+  find_package(ament_cmake_pytest REQUIRED)
+  ament_add_pytest_test(test_${PROJECT_NAME} test/numpy_eigen_tests.py)
 endif()
 
-install(TARGETS ${PROJECT_NAME}
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
-
-##################
-## Installation ##
-##################
-
-install(TARGETS ${PROJECT_NAME}
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
-
-## Mark cpp header files for installation
-install(DIRECTORY include/${PROJECT_NAME}/
-  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-)
+ament_export_include_directories(include)
+ament_export_dependencies(Eigen3)
+ament_package()

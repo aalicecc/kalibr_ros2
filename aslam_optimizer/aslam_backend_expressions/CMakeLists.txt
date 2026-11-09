@@ -1,20 +1,22 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.8)
 project(aslam_backend_expressions)
+
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set(CMAKE_CXX_STANDARD 14)
 
 
-find_package(catkin REQUIRED COMPONENTS aslam_backend sm_boost sm_random sm_kinematics sparse_block_matrix sm_timing)
+find_package(ament_cmake REQUIRED)
+find_package(aslam_backend REQUIRED)
+find_package(sm_boost REQUIRED)
+find_package(sm_random REQUIRED)
+find_package(sm_kinematics REQUIRED)
+find_package(sparse_block_matrix REQUIRED)
+find_package(sm_timing REQUIRED)
 find_package(Eigen3 REQUIRED)
-find_package(Boost REQUIRED COMPONENTS system)
+find_package(Boost REQUIRED COMPONENTS system thread serialization filesystem regex)
 
-catkin_package(
-  INCLUDE_DIRS include
-  LIBRARIES ${PROJECT_NAME}
-  CATKIN_DEPENDS sparse_block_matrix
-)
-
-include_directories(include ${catkin_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIRS})
+include_directories(include ${EIGEN3_INCLUDE_DIRS})
 
 add_library(${PROJECT_NAME}
   src/RotationExpression.cpp
@@ -57,28 +59,33 @@ add_library(${PROJECT_NAME}
   src/MatrixExpression.cpp
   src/MatrixExpressionNode.cpp
 )
-target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+target_include_directories(${PROJECT_NAME} PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${EIGEN3_INCLUDE_DIRS}
+  ${Boost_INCLUDE_DIRS})
+target_link_libraries(${PROJECT_NAME}
+  aslam_backend::aslam_backend sm_boost::sm_boost sm_random::sm_random
+  sm_kinematics::sm_kinematics sparse_block_matrix::sparse_block_matrix
+  sm_timing::sm_timing ${Boost_LIBRARIES})
 
 ##################
 ## Installation ##
 ##################
 
-install(TARGETS ${PROJECT_NAME}
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
+install(TARGETS ${PROJECT_NAME} EXPORT export_${PROJECT_NAME}
+  ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
 
 ## Mark cpp header files for installation
 install(DIRECTORY include/
-  DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}
+  DESTINATION include
 )
 
 #############
 ## Testing ##
 #############
 
-if(CATKIN_ENABLE_TESTING)
+if(BUILD_TESTING)
   # Avoid clash with tr1::tuple: https://code.google.com/p/googletest/source/browse/trunk/README?r=589#257
   add_definitions(-DGTEST_USE_OWN_TR1_TUPLE=0)
 
@@ -98,3 +105,9 @@ if(CATKIN_ENABLE_TESTING)
   #   )
   # target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})
 endif()
+
+ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
+ament_export_include_directories(include ${EIGEN3_INCLUDE_DIRS})
+ament_export_dependencies(aslam_backend sm_boost sm_random sm_kinematics
+  sparse_block_matrix sm_timing Eigen3 Boost)
+ament_package()

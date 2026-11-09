@@ -57,6 +57,8 @@ class CameraGeometry(object):
         success = self.geometry.initializeIntrinsics(observations)
         if not success:
             sm.logError("initialization of focal length for cam with topic {0} failed  ".format(self.dataset.topic))
+            self.isGeometryInitialized = False
+            return False
         
         #in case of an omni model, first optimize over intrinsics only
         #(--> catch most of the distortion with the projection model)

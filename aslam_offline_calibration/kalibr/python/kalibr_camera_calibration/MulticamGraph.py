@@ -293,6 +293,12 @@ class MulticamCalibrationGraph(object):
 #############################################################            
     def plotGraph(self, noShow=False):        
         layout = self.G.layout("kk")
+
+        # igraph 0.9 expects this edge attribute when drawing edge labels.
+        # Kalibr does not curve observation-graph edges, so make that default
+        # explicit for graph instances that do not already define it.
+        if "curved" not in self.G.es.attributes():
+            self.G.es["curved"] = False
         
         #plot the optimal baselines for pair calibration
         try:

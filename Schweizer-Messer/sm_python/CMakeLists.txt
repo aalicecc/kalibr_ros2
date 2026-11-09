@@ -1,36 +1,23 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.8)
 project(sm_python)
 
 set(CMAKE_CXX_STANDARD 14)
 
-
-find_package(catkin REQUIRED COMPONENTS sm_common numpy_eigen sm_kinematics 
-sm_timing sm_logging sm_matrix_archive
-sm_property_tree python_module numpy_eigen
-)
+find_package(ament_cmake REQUIRED)
+find_package(ament_cmake_python REQUIRED)
+find_package(python_module REQUIRED)
+find_package(sm_common REQUIRED)
+find_package(numpy_eigen REQUIRED)
+find_package(sm_kinematics REQUIRED)
+find_package(sm_timing REQUIRED)
+find_package(sm_logging REQUIRED)
+find_package(sm_matrix_archive REQUIRED)
+find_package(sm_property_tree REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(Boost REQUIRED COMPONENTS
+  python310 serialization system thread filesystem regex)
 
-catkin_python_setup()
-
-catkin_package(
-  INCLUDE_DIRS include ${catkin_INCLUDE_DIRS}
-  CATKIN_DEPENDS sm_common numpy_eigen sm_kinematics sm_timing sm_logging
-  sm_matrix_archive sm_property_tree python_module
-)
-add_definitions(-D__STRICT_ANSI__)
-  
-include_directories(include ${EIGEN3_INCLUDE_DIRS} ${catkin_INCLUDE_DIRS})
-
-# Set up the python exports.
-SET(PY_PROJECT_NAME sm_python)
-SET(PY_PACKAGE_DIR python/sm)
-
-find_package(Boost REQUIRED COMPONENTS system serialization)
-
-##############
-## Building ##
-##############
-add_python_export_library(${PY_PROJECT_NAME} ${PY_PACKAGE_DIR}
+add_python_export_library(sm_python python/sm
   src/module.cpp
   src/export_rotational_kinematics.cpp
   src/export_rotations.cpp
@@ -50,11 +37,16 @@ add_python_export_library(${PY_PROJECT_NAME} ${PY_PACKAGE_DIR}
   src/exportNsecTime.cpp
   src/random.cpp
 )
-target_link_libraries(${PY_PROJECT_NAME} ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+target_include_directories(sm_python PRIVATE include ${EIGEN3_INCLUDE_DIRS})
+target_link_libraries(sm_python Boost::python310 Boost::serialization)
+ament_target_dependencies(sm_python
+  sm_common numpy_eigen sm_kinematics sm_timing sm_logging
+  sm_matrix_archive sm_property_tree)
 
-##################
-## Installation ##
-##################
-install(DIRECTORY include/
-  DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}
-)
+ament_python_install_package(sm PACKAGE_DIR python/sm)
+install(DIRECTORY include/ DESTINATION include)
+
+ament_export_include_directories(include)
+ament_export_dependencies(sm_common numpy_eigen sm_kinematics sm_timing
+  sm_logging sm_matrix_archive sm_property_tree Eigen3 Boost)
+ament_package()
