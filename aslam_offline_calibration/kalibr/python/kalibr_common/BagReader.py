@@ -1,4 +1,4 @@
-"""Read ROS 1 bags and ROS 2 rosbag2 SQLite3 recordings for Kalibr.
+"""Read ROS 2 rosbag2 SQLite3 recordings for Kalibr.
 
 The ROS 2 path intentionally uses rosbag2_py and generated ROS message classes,
 so image/IMU decoding continues to use the message fields expected by Kalibr.
@@ -14,9 +14,9 @@ def _is_ros2_bag(path):
 
 
 def stamp_parts(stamp):
-    """Return (seconds, nanoseconds) for ROS 1 or ROS 2 builtin time values."""
-    sec = getattr(stamp, "secs", getattr(stamp, "sec", None))
-    nsec = getattr(stamp, "nsecs", getattr(stamp, "nanosec", None))
+    """Return (seconds, nanoseconds) from a ROS 2 builtin time value."""
+    sec = getattr(stamp, "sec", None)
+    nsec = getattr(stamp, "nanosec", None)
     if sec is None or nsec is None:
         raise TypeError("Unsupported ROS timestamp: {}".format(type(stamp).__name__))
     return int(sec), int(nsec)
@@ -33,9 +33,6 @@ def stamp_nanoseconds(stamp):
 
 
 def message_type(message):
-    ros1_type = getattr(message, "_type", None)
-    if ros1_type:
-        return ros1_type
     module = message.__class__.__module__.split(".")
     if len(module) >= 3 and module[-2].startswith("_"):
         return "{}/{}".format(module[-3], module[-2][1:])
@@ -79,51 +76,18 @@ class _Rosbag2Records:
             raise IndexError(index)
         from rclpy.serialization import deserialize_message
         message = deserialize_message(payload[0], self._message_class)
-        return message, _HeaderTimestamp(bag_timestamp)
-
-    def timestamp(self, index):
-        return self._entries[index][1]
+        return message, _BagTimestamp(bag_timestamp)
 
     def header_timestamp_nanoseconds(self, index):
         return self._entries[index][1]
-
-
-class _Rosbag1Records:
-    """Lazy random-access view over the ROS 1 bag index."""
-    def __init__(self, bag, topic):
-        connections = bag._get_connections(topics=topic)
-        indexes = bag._get_indexes(connections)
-        try:
-            self._index = next(indexes)
-        except StopIteration:
-            self._index = []
-        self._bag = bag
-
-    def __len__(self):
-        return len(self._index)
-
-    def __getitem__(self, index):
-        entry = self._index[index]
-        _, message, stamp = self._bag._read_message(entry.position)
-        return message, stamp
-
-    def header_timestamp_nanoseconds(self, index):
-        message, _ = self[index]
-        return stamp_nanoseconds(message.header.stamp)
 
 
 class BagReader:
-    """Small indexed reader shared by Kalibr's image and IMU datasets."""
+    """Small indexed reader for a ROS 2 rosbag2 recording."""
     def __init__(self, path):
         self.path = path
-        self._ros1 = not _is_ros2_bag(path)
-        if self._ros1:
-            try:
-                import rosbag
-            except ImportError as exc:
-                raise RuntimeError("This is not a rosbag2 directory and ROS 1 rosbag is unavailable: {}".format(path)) from exc
-            self._bag = rosbag.Bag(path)
-            return
+        if not _is_ros2_bag(path):
+            raise RuntimeError("Expected a rosbag2 directory containing metadata.yaml: {}".format(path))
 
         try:
             from rosidl_runtime_py.utilities import get_message
@@ -146,8 +110,6 @@ class BagReader:
             self._topic_metadata.append(topic_metadata)
 
     def records(self, topic):
-        if self._ros1:
-            return _Rosbag1Records(self._bag, topic)
         output = []
         for connection_index, connection in enumerate(self._connections):
             key = (connection_index, topic)
@@ -169,11 +131,8 @@ class BagReader:
             yield record[0], record[1]
 
     def close(self):
-        if self._ros1:
-            self._bag.close()
-        else:
-            for connection in self._connections:
-                connection.close()
+        for connection in self._connections:
+            connection.close()
 
 
 class _IndexedMessage:
@@ -197,20 +156,17 @@ class _IndexedRecords(list):
         return self[index].header_timestamp_nanoseconds()
 
 
-class _HeaderTimestamp:
+class _BagTimestamp:
     def __init__(self, nanoseconds):
         self._nanoseconds = nanoseconds
 
     @property
-    def secs(self):
+    def sec(self):
         return divmod(self._nanoseconds, 1000000000)[0]
 
     @property
-    def nsecs(self):
+    def nanosec(self):
         return divmod(self._nanoseconds, 1000000000)[1]
-
-    def to_sec(self):
-        return self._nanoseconds * 1e-9
 
 
 def _cdr_header_timestamp_nanoseconds(header):

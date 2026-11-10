@@ -1,8 +1,10 @@
+# Kalibr ROS 2
+
 ![Kalibr](https://raw.githubusercontent.com/wiki/ethz-asl/kalibr/images/kalibr_small.png)
 
-[![ROS1 Ubuntu 20.04](https://github.com/ethz-asl/kalibr/actions/workflows/docker_2004_build.yaml/badge.svg)](https://github.com/ethz-asl/kalibr/actions/workflows/docker_2004_build.yaml)
-[![ROS1 Ubuntu 18.04](https://github.com/ethz-asl/kalibr/actions/workflows/docker_1804_build.yaml/badge.svg)](https://github.com/ethz-asl/kalibr/actions/workflows/docker_1804_build.yaml)
-[![ROS1 Ubuntu 16.04](https://github.com/ethz-asl/kalibr/actions/workflows/docker_1604_build.yaml/badge.svg)](https://github.com/ethz-asl/kalibr/actions/workflows/docker_1604_build.yaml)
+This repository adapts Kalibr for ROS 2 Humble. Calibration algorithms and
+configuration formats follow the upstream Kalibr project; bag input uses
+ROS 2 `rosbag2` recordings.
 
 ## Introduction
 Kalibr is a toolbox that solves the following calibration problems:
@@ -12,8 +14,9 @@ Kalibr is a toolbox that solves the following calibration problems:
 1. **Multi-Inertial Calibration (IMU-IMU)**: Spatial and temporal calibration of an IMU w.r.t a base inertial sensor along with IMU intrinsic parameters (requires 1-aiding camera sensor).
 1. **Rolling Shutter Camera Calibration**: Full intrinsic calibration (projection, distortion and shutter parameters) of rolling shutter cameras.
 
-To install follow the [install wiki page](https://github.com/ethz-asl/kalibr/wiki/installation) instructions for which you can either use Docker or install from source in a ROS workspace.
-Please find more information on the [wiki pages](https://github.com/ethz-asl/kalibr/wiki) of this repository.
+Build and run this ROS 2 port from a Humble workspace with `colcon`. The
+upstream [Kalibr wiki](https://github.com/ethz-asl/kalibr/wiki) documents the
+calibration models and target configuration formats.
 For questions or comments, please open an issue on Github.
 
 

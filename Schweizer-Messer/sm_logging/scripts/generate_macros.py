@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # Software License Agreement (BSD License)
 #
 # Copyright (c) 2008, Willow Garage, Inc.
@@ -31,11 +31,9 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import sys
-import roslib
-roslib.load_manifest('sm_logging')
+from pathlib import Path
 
-base_path = roslib.packages.get_pkg_dir('sm_logging')
+package_path = Path(__file__).resolve().parents[1]
 
 def add_macro(f, caps_name, enum_name):
     f.write('#if (SMCONSOLE_MIN_SEVERITY > SMCONSOLE_SEVERITY_%s)\n' %(caps_name))
@@ -87,7 +85,7 @@ def add_macro(f, caps_name, enum_name):
     # f.write('#define SM_%s_STREAM_FILTER_NAMED(filter, name, args) SM_LOG_STREAM_FILTER(filter, ::sm::logging::levels::%s, std::string(SMCONSOLE_NAME_PREFIX) + "." + name, args)\n' %(caps_name, enum_name))
     f.write('#endif\n\n')
 
-f = open('%s/include/sm/logging/macros_generated.hpp' %(base_path), 'w')
+f = open(package_path / 'include/sm/logging/macros_generated.hpp', 'w')
 
 f.write("// !!!!!!!!!!!!!!!!!!!!!!! This is a generated file, do not edit manually\n\n")
 

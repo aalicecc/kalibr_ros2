@@ -1,7 +1,3 @@
-A convenience wrapper that handles the include and link for opencv automatically for catkin packages.
-
-Make sure that the ROS catkin package "opencv2" is somewhere in your workspace, then add 
-```
-<build_depend>opencv2_catkin</build_depend>
-```
-to your package. OpenCV will be automatically found and linked.
+Compatibility package retained under its upstream name. In this ROS 2 port,
+it uses `ament_cmake` to export the system OpenCV include directories and
+libraries to dependent packages.

@@ -11,7 +11,7 @@ find_package(Boost REQUIRED COMPONENTS system filesystem)
 
 add_definitions(-D__STRICT_ANSI__)
 
-include_directories(include ${catkin_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
+include_directories(include ${Boost_INCLUDE_DIRS})
 
 ##############
 ## Building ##

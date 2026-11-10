@@ -1,4 +1,3 @@
-from __future__ import print_function #handle print in 2.x python
 import sm
 from sm import PlotCollection
 from kalibr_common import ConfigReader as cr
@@ -10,13 +9,7 @@ import incremental_calibration as ic
 import kalibr_camera_calibration as kcc
 
 from matplotlib.backends.backend_pdf import PdfPages
-import io
-try:
-    # Python 2
-    from cStringIO import StringIO
-except ImportError:
-    # Python 3
-    from io import StringIO
+from io import StringIO
 import matplotlib.patches as patches
 import mpl_toolkits.mplot3d.axes3d as p3
 import cv2

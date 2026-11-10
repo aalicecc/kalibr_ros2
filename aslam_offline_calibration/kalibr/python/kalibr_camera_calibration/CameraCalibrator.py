@@ -1,4 +1,3 @@
-from __future__ import print_function #handle print in 2.x python
 import sm
 from sm import PlotCollection
 from kalibr_common import ConfigReader as cr

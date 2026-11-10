@@ -16,6 +16,7 @@ _spec.loader.exec_module(_reader_module)
 BagReader = _reader_module.BagReader
 message_type = _reader_module.message_type
 stamp_nanoseconds = _reader_module.stamp_nanoseconds
+stamp_seconds = _reader_module.stamp_seconds
 
 
 class Rosbag2ReaderTest(unittest.TestCase):
@@ -58,7 +59,7 @@ class Rosbag2ReaderTest(unittest.TestCase):
 
                 self.assertEqual(message_type(first), "sensor_msgs/Image")
                 self.assertEqual(stamp_nanoseconds(first.header.stamp), 3000000123)
-                self.assertEqual(bag_stamp.to_sec(), 4.0)
+                self.assertEqual(stamp_seconds(bag_stamp), 4.0)
                 self.assertEqual(
                     [stamp_nanoseconds(records[index][0].header.stamp)
                      for index in range(len(records))],

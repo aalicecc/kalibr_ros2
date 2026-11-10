@@ -1,4 +1,3 @@
-from __future__ import print_function #handle print in 2.x python
 from sm import PlotCollection
 from . import IccPlots as plots
 import sm
@@ -10,13 +9,7 @@ import yaml
 import time
 from matplotlib.backends.backend_pdf import PdfPages
 import mpl_toolkits.mplot3d.axes3d as p3
-import io
-try:
-    # Python 2
-    from cStringIO import StringIO
-except ImportError:
-    # Python 3
-    from io import StringIO
+from io import StringIO
 import matplotlib.patches as patches
 
 # make numpy print prettier

@@ -26,18 +26,10 @@ void exportTimeAndDuration() {
           .def("fromNSec", &Time::fromNSec,
                return_value_policy<copy_non_const_reference>(),
                "Set the time from nanoseconds")
-      // These match the rospy time
-          .def("to_sec", &Time::toSec, "Convert the current time to seconds")
-          .def("from_sec", &Time::fromSec,
-               return_value_policy<copy_non_const_reference>(),
-               "Set the time from seconds").def(
-          "to_nsec", &Time::toNSec, "Convert the current time to nanoseconds")
-
       .def(self - self).def(self + Duration()).def(self - Duration()).def(
           self += Duration()).def(self -= Duration()).def(self == self).def(
           self != self).def(self > self).def(self < self).def(self >= self).def(
           self <= self).def("isZero", &Time::isZero, "Is this time zero?")
-          .def_readwrite("secs", &Time::sec).def_readwrite("nsecs", &Time::nsec)
           .def_readwrite("sec", &Time::sec).def_readwrite("nsec", &Time::nsec)
           .def_pickle(sm::python::pickle_suite<aslam::Time>())
 

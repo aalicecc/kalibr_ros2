@@ -17,18 +17,6 @@ find_package(sm_timing REQUIRED)
 find_package(sparse_block_matrix REQUIRED)
 find_package(aslam_splines REQUIRED)
 
-if(BUILD_TESTING)
-  # Avoid clash with tr1::tuple: https://code.google.com/p/googletest/source/browse/trunk/README?r=589#257
-  add_definitions(-DGTEST_USE_OWN_TR1_TUPLE=0)
-
-  include_directories(include)
-  # catkin_add_gtest(${PROJECT_NAME}_test
-  #   test/test_main.cpp
-  #   test/TestReprojectionError.cpp
-  # )
-  # target_link_libraries(${PROJECT_NAME}_test ${catkin_LIBRARIES} ${Boost_LIBRARIES})
-endif()
-
 ##################
 ## Installation ##
 ##################

@@ -15,10 +15,6 @@ class BagImuDatasetReaderIterator(object):
         self.iter = self.indices.__iter__()
     def __iter__(self):
         return self
-    def next(self):
-        # required for python 2.x compatibility
-        idx = next(self.iter)
-        return self.dataset.getMessage(idx)
     def __next__(self):
         idx = next(self.iter)
         return self.dataset.getMessage(idx)
@@ -56,7 +52,7 @@ class BagImuDatasetReader(object):
             timestamp = stamp_nanoseconds(data.header.stamp)
             timestamps.append(timestamp)
             if self.perform_synchronization:
-                self.timestamp_corrector.correctTimestamp(data.header.stamp.to_sec(), \
+                self.timestamp_corrector.correctTimestamp(stamp_seconds(data.header.stamp), \
                                                           stamp_seconds(stamp))
         
         sorted_tuples = sorted(zip(timestamps, indices))

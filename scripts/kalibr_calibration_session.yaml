@@ -1,0 +1,55 @@
+# OVTI example for kalibr_calibration_session.py.
+# Relative paths are resolved from this file's directory.
+
+session_root: ../results/calibration_sessions
+ros_setup: /opt/ros/humble/setup.bash
+workspace_setup: ../install/setup.bash
+
+recorder:
+  command:
+    - ros2
+    - bag
+    - record
+    - -o
+    - "{bag_dir}"
+    - /left/image_raw
+    - /right/image_raw
+    - /camera/imu
+
+calibration:
+  target_yaml: ../../kalibr_my/data/ovti/new_april_6x6.yaml
+  imu_yaml: ../../kalibr_my/data/ovti/ovti1-imu.yaml
+  camera_topics: [/left/image_raw, /right/image_raw]
+  camera_models: [pinhole-equi, pinhole-equi]
+  imu_topic: /camera/imu
+  imu_rate_hz: 240.0
+  imu_model: calibrated
+  camera_bag_freq: 5.0
+  imu_camera_bag_freq: 3.0
+  mi_tol: 0.2
+
+validation:
+  min_duration_sec: 20.0
+  min_overlap_sec: 10.0
+  camera:
+    /left/image_raw:
+      expected_rate_hz: 30.0
+      max_drop_rate: 0.01
+      max_gap_periods: 3
+      min_messages: 30
+    /right/image_raw:
+      expected_rate_hz: 30.0
+      max_drop_rate: 0.01
+      max_gap_periods: 3
+      min_messages: 30
+  imu:
+    expected_rate_hz: 240.0
+    max_drop_rate: 0.01
+    max_gap_periods: 5
+    min_messages: 100
+  results:
+    camera_reprojection_std_max_px: 0.5
+    imu_reprojection_mean_max_px: 0.5
+    imu_gyro_normalized_mean_max: 3.0
+    imu_accel_normalized_mean_max: 3.0
+    max_time_offset_sec: 0.1
